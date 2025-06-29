@@ -11,12 +11,18 @@ repositories {
 }
 
 dependencies {
+    // Javalin e suporte JSON
     implementation 'io.javalin:javalin:5.6.3'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
-    implementation 'org.slf4j:slf4j-simple:2.0.7'  // <-- ADICIONADO AQUI
 
+    // Logging simples
+    implementation 'org.slf4j:slf4j-simple:2.0.7'
+
+    // Testes com JUnit 5
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+
+    // Ferramenta de testes do Javalin
     testImplementation 'io.javalin:javalin-testtools:5.6.3'
 }
 
@@ -30,6 +36,18 @@ application {
     mainClass.set("anderson20021001.etapa1.App")
 }
 
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:all']  // Exibe todos os avisos
+    // options.compilerArgs += ['-Werror']  // (Opcional) Trata avisos como erro
+}
+
 test {
     useJUnitPlatform()
+
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat "short"
+        showStandardStreams = true  // Exibe System.out e logs no console
+    }
 }

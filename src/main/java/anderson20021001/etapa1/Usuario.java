@@ -1,52 +1,81 @@
-// Declara o pacote onde a classe está localizada
 package anderson20021001.etapa1;
 
-// Classe que representa um objeto Usuario
+/**
+ * Representa um usuário do sistema.
+ * Classe usada para serialização/desserialização JSON e armazenamento em memória.
+ */
 public class Usuario {
 
-    // Atributos privados que representam as propriedades do usuário
     private String nome;
     private String email;
     private int idade;
 
-    // Construtor vazio (necessário para frameworks como Javalin fazerem a desserialização de JSON)
-    public Usuario() {
-    }
+    /**
+     * Construtor padrão vazio necessário para frameworks (ex: Javalin).
+     */
+    public Usuario() {}
 
-    // Construtor com parâmetros para facilitar a criação do objeto manualmente
+    /**
+     * Construtor para facilitar criação manual do objeto.
+     *
+     * @param nome  nome do usuário
+     * @param email email do usuário
+     * @param idade idade do usuário
+     */
     public Usuario(String nome, String email, int idade) {
         this.nome = nome;
         this.email = email;
         this.idade = idade;
     }
 
-    // Getter (leitura) do nome
     public String getNome() {
         return nome;
     }
 
-    // Setter (modificação) do nome
     public void setNome(String nome) {
         this.nome = nome;
     }
 
-    // Getter do email
     public String getEmail() {
         return email;
     }
 
-    // Setter do email
     public void setEmail(String email) {
         this.email = email;
     }
 
-    // Getter da idade
     public int getIdade() {
         return idade;
     }
 
-    // Setter da idade
     public void setIdade(int idade) {
         this.idade = idade;
+    }
+
+    @Override
+    public String toString() {
+        return "Usuario{" +
+                "nome='" + nome + '\'' +
+                ", email='" + email + '\'' +
+                ", idade=" + idade +
+                '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Usuario)) return false;
+        Usuario usuario = (Usuario) o;
+        return idade == usuario.idade &&
+                nome.equals(usuario.nome) &&
+                email.equals(usuario.email);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = nome != null ? nome.hashCode() : 0;
+        result = 31 * result + (email != null ? email.hashCode() : 0);
+        result = 31 * result + idade;
+        return result;
     }
 }

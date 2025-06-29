@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class AppTest {
 
-    // Testa se o endpoint /hello retorna status 200 e a string correta
+    // Testa o endpoint GET /hello
     @Test
     void helloEndpointRetornaMensagemCorreta() {
         JavalinTest.test(App::createApp, (server, client) -> {
@@ -17,35 +17,36 @@ public class AppTest {
         });
     }
 
-    // Testa se o endpoint /usuarios (POST) cadastra um novo usuário
+    // Testa o POST /usuarios com status 201
     @Test
     void postUsuarioRetornaStatus201() {
-        JavalinTest.test(App::createApp, (server, client) -> {
-            String json = """
-                {
-                    "nome": "Maria Teste",
-                    "email": "maria@test.com",
-                    "idade": 28
-                }
+        String usuarioJson = """
+            {
+                "nome": "Maria Teste",
+                "email": "maria@test.com",
+                "idade": 28
+            }
             """;
 
-            var response = client.post("/usuarios", json);
+        JavalinTest.test(App::createApp, (server, client) -> {
+            var response = client.post("/usuarios", usuarioJson);
             assertEquals(201, response.code());
         });
     }
 
-    // Testa se o usuário recém cadastrado pode ser encontrado pelo e-mail
+    // Testa GET /usuarios/{email} para um usuário existente
     @Test
     void buscarUsuarioPorEmailRetornaCorretamente() {
-        JavalinTest.test(App::createApp, (server, client) -> {
-            String json = """
-                {
-                    "nome": "Carlos Teste",
-                    "email": "carlos@email.com",
-                    "idade": 40
-                }
+        String usuarioJson = """
+            {
+                "nome": "Carlos Teste",
+                "email": "carlos@email.com",
+                "idade": 40
+            }
             """;
-            client.post("/usuarios", json);
+
+        JavalinTest.test(App::createApp, (server, client) -> {
+            client.post("/usuarios", usuarioJson);
 
             var response = client.get("/usuarios/carlos@email.com");
             String body = response.body().string();
@@ -55,33 +56,35 @@ public class AppTest {
         });
     }
 
-    // Testa se a listagem de usuários retorna um array não vazio
+    // Testa GET /usuarios retornando lista não vazia
     @Test
     void getUsuariosRetornaListaNaoVazia() {
-        JavalinTest.test(App::createApp, (server, client) -> {
-            String json = """
-                {
-                    "nome": "Ana Clara",
-                    "email": "ana@teste.com",
-                    "idade": 35
-                }
+        String usuarioJson = """
+            {
+                "nome": "Ana Clara",
+                "email": "ana@teste.com",
+                "idade": 35
+            }
             """;
-            client.post("/usuarios", json);
+
+        JavalinTest.test(App::createApp, (server, client) -> {
+            client.post("/usuarios", usuarioJson);
 
             var response = client.get("/usuarios");
             String body = response.body().string();
 
             assertEquals(200, response.code());
-            assertTrue(body.startsWith("["), "Deve retornar uma lista");
-            assertTrue(body.contains("Ana Clara"), "Deve conter o usuário cadastrado");
+            assertTrue(body.startsWith("["));
+            assertTrue(body.contains("Ana Clara"));
         });
     }
 
-    // Testa se o echo retorna o mesmo conteúdo enviado
+    // Testa POST /echo retornando mesmo JSON enviado
     @Test
     void echoPostRetornaMesmoConteudo() {
+        String json = "{\"mensagem\":\"Testando echo\"}";
+
         JavalinTest.test(App::createApp, (server, client) -> {
-            String json = "{\"mensagem\":\"Testando echo\"}";
             var response = client.post("/echo", json);
 
             assertEquals(200, response.code());
@@ -89,7 +92,7 @@ public class AppTest {
         });
     }
 
-    // Testa se o /status retorna ok e um timestamp
+    // Testa GET /status retornando JSON com status e timestamp
     @Test
     void statusEndpointRetornaOkETimestamp() {
         JavalinTest.test(App::createApp, (server, client) -> {
@@ -102,7 +105,7 @@ public class AppTest {
         });
     }
 
-    // Testa a saudação personalizada
+    // Testa GET /saudacao/{nome} retornando mensagem personalizada
     @Test
     void saudacaoRetornaMensagemComNome() {
         JavalinTest.test(App::createApp, (server, client) -> {
@@ -113,4 +116,95 @@ public class AppTest {
             assertTrue(body.contains("Olá, Joana"));
         });
     }
+
+    // ===================
+    // Testes para /tarefas
+    // ===================
+
+    // Testa criação de tarefa via POST /tarefas
+    @Test
+    void createTaskTest() {
+        String tarefaJson = """
+            {
+                "id": 1,
+                "descricao": "Estudar Javalin",
+                "concluida": false
+            }
+            """;
+
+        JavalinTest.test(App::createApp, (server, client) -> {
+            var response = client.post("/tarefas", tarefaJson);
+            assertEquals(201, response.code());
+        });
+    }
+
+    // Testa GET /tarefas/{id} para tarefa existente
+    @Test
+    void findTaskByIdTest() {
+        String tarefaJson = """
+            {
+                "id": 2,
+                "descricao": "Escrever testes",
+                "concluida": true
+            }
+            """;
+
+        JavalinTest.test(App::createApp, (server, client) -> {
+            client.post("/tarefas", tarefaJson);
+
+            var response = client.get("/tarefas/2");
+            String body = response.body().string();
+
+            assertEquals(200, response.code());
+            assertTrue(body.contains("Escrever testes"));
+        });
+    }
+
+    // Testa GET /tarefas listando todas as tarefas
+    @Test
+    void listTasksTest() {
+        String tarefaJson = """
+            {
+                "id": 3,
+                "descricao": "Revisar código",
+                "concluida": false
+            }
+            """;
+
+        JavalinTest.test(App::createApp, (server, client) -> {
+            client.post("/tarefas", tarefaJson);
+
+            var response = client.get("/tarefas");
+            String body = response.body().string();
+
+            assertEquals(200, response.code());
+            assertTrue(body.startsWith("["));
+            assertTrue(body.contains("Revisar código"));
+        });
+    }
+
+    // Testa GET /tarefas/{id} com ID inválido (não numérico)
+    @Test
+    void getTarefaPorIdComIdInvalido() {
+        JavalinTest.test(App::createApp, (server, client) -> {
+            var response = client.get("/tarefas/abc");
+            String body = response.body().string();
+
+            assertEquals(400, response.code());
+            assertTrue(body.contains("ID inválido"));
+        });
+    }
+
+    // Testa GET /tarefas/{id} para tarefa não encontrada
+    @Test
+    void getTarefaPorIdNaoEncontrada() {
+        JavalinTest.test(App::createApp, (server, client) -> {
+            var response = client.get("/tarefas/9999");
+            String body = response.body().string();
+
+            assertEquals(404, response.code());
+            assertTrue(body.contains("Tarefa não encontrada"));
+        });
+    }
+
 }

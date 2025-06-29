@@ -1,78 +1,151 @@
-// Declara o pacote onde a classe está localizada
 package anderson20021001.etapa1;
 
-// Importa a biblioteca Javalin, usada para criar aplicações web leves
 import io.javalin.Javalin;
+import io.javalin.http.NotFoundResponse;
+import io.javalin.http.BadRequestResponse;
 
-// Importa classes utilitárias para datas, coleções e listas thread-safe
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-// Classe principal da aplicação
 public class App {
 
-    // Lista thread-safe para armazenar objetos do tipo Usuario (simulando um banco de dados em memória)
     static List<Usuario> usuarios = new CopyOnWriteArrayList<>();
+    static List<Tarefa> tarefas = new CopyOnWriteArrayList<>();
 
-    // Método responsável por criar e configurar a aplicação Javalin
     public static Javalin createApp() {
-        Javalin app = Javalin.create(); // Inicializa a instância da aplicação Javalin
+        Javalin app = Javalin.create(config -> {
+            config.http.defaultContentType = "application/json";
+        });
 
-        // Rota GET simples que retorna um texto fixo
+        // Endpoints utilitários
         app.get("/hello", ctx -> ctx.result("Hello, Javalin!"));
 
-        // Rota GET que retorna o status da aplicação e a data/hora atual no formato ISO
-        app.get("/status", ctx -> {
-            Map<String, String> status = new HashMap<>();
-            status.put("status", "ok"); // Status fixo
-            status.put("timestamp", Instant.now().toString()); // Data/hora atual
-            ctx.json(status); // Envia o JSON como resposta
-        });
+        app.get("/status", ctx -> ctx.json(Map.of(
+                "status", "ok",
+                "timestamp", Instant.now().toString()
+        )));
 
-        // Rota POST que recebe um corpo JSON e devolve o mesmo JSON de volta (efeito "eco")
         app.post("/echo", ctx -> {
-            Map<String, String> body = ctx.bodyAsClass(Map.class); // Converte o corpo para um Map
-            ctx.json(body); // Retorna o mesmo corpo
-        });
-
-        // Rota GET com parâmetro de caminho, que retorna uma saudação personalizada
-        app.get("/saudacao/{nome}", ctx -> {
-            String nome = ctx.pathParam("nome"); // Lê o parâmetro de caminho "nome"
-            ctx.json(Map.of("mensagem", "Olá, " + nome + "!")); // Retorna uma mensagem de saudação
-        });
-
-        // Rota POST para cadastrar um novo usuário na lista
-        app.post("/usuarios", ctx -> {
-            Usuario usuario = ctx.bodyAsClass(Usuario.class); // Converte o corpo JSON para objeto Usuario
-            usuarios.add(usuario); // Adiciona o usuário à lista
-            ctx.status(201); // Retorna status HTTP 201 (Created)
-        });
-
-        // Rota GET que retorna todos os usuários cadastrados
-        app.get("/usuarios", ctx -> {
-            ctx.json(usuarios); // Retorna a lista de usuários como JSON
-        });
-
-        // Rota GET para buscar um usuário pelo e-mail
-        app.get("/usuarios/{email}", ctx -> {
-            String email = ctx.pathParam("email"); // Lê o e-mail da URL
-            Optional<Usuario> usuario = usuarios.stream()
-                    .filter(u -> u.getEmail().equalsIgnoreCase(email)) // Filtra pela lista ignorando caixa alta/baixa
-                    .findFirst(); // Retorna o primeiro usuário encontrado (se existir)
-
-            if (usuario.isPresent()) {
-                ctx.json(usuario.get()); // Se encontrado, retorna o usuário
-            } else {
-                ctx.status(404).json(Map.of("erro", "Usuário não encontrado")); // Se não encontrado, retorna erro 404
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> body = (Map<String, Object>) ctx.bodyAsClass(Map.class);
+                ctx.json(body);
+            } catch (Exception e) {
+                throw new BadRequestResponse("Formato JSON inválido");
             }
         });
 
-        // Retorna a aplicação configurada
+        app.get("/saudacao/{nome}", ctx -> {
+            String nome = ctx.pathParam("nome");
+            ctx.json(Map.of("mensagem", "Olá, " + nome + "!"));
+        });
+
+        // CRUD de usuários
+        app.post("/usuarios", ctx -> {
+            Usuario usuario = ctx.bodyAsClass(Usuario.class);
+            usuarios.add(usuario);
+            ctx.status(201).json(usuario);
+        });
+
+        app.get("/usuarios", ctx -> {
+            if (usuarios.isEmpty()) {
+                ctx.status(204);
+            } else {
+                ctx.json(usuarios);
+            }
+        });
+
+        app.get("/usuarios/{email}", ctx -> {
+            String email = ctx.pathParam("email");
+            Usuario usuario = usuarios.stream()
+                    .filter(u -> u.getEmail().equalsIgnoreCase(email))
+                    .findFirst()
+                    .orElseThrow(() -> new NotFoundResponse("Usuário não encontrado"));
+            ctx.json(usuario);
+        });
+
+        app.put("/usuarios/{email}", ctx -> {
+            String email = ctx.pathParam("email");
+            Usuario novoUsuario = ctx.bodyAsClass(Usuario.class);
+            for (int i = 0; i < usuarios.size(); i++) {
+                if (usuarios.get(i).getEmail().equalsIgnoreCase(email)) {
+                    usuarios.set(i, novoUsuario);
+                    ctx.json(novoUsuario);
+                    return;
+                }
+            }
+            throw new NotFoundResponse("Usuário para atualizar não encontrado");
+        });
+
+        app.delete("/usuarios/{email}", ctx -> {
+            String email = ctx.pathParam("email");
+            boolean removido = usuarios.removeIf(u -> u.getEmail().equalsIgnoreCase(email));
+            if (removido) {
+                ctx.status(204);
+            } else {
+                throw new NotFoundResponse("Usuário para remoção não encontrado");
+            }
+        });
+
+        // CRUD de tarefas
+        app.post("/tarefas", ctx -> {
+            try {
+                Tarefa tarefa = ctx.bodyAsClass(Tarefa.class);
+                tarefas.add(tarefa);
+                ctx.status(201).json(tarefa);
+            } catch (Exception e) {
+                throw new BadRequestResponse("Requisição inválida para criação de tarefa");
+            }
+        });
+
+        app.get("/tarefas", ctx -> {
+            if (tarefas.isEmpty()) {
+                ctx.status(204);
+            } else {
+                ctx.json(tarefas);
+            }
+        });
+
+        app.get("/tarefas/{id}", ctx -> {
+            try {
+                int id = Integer.parseInt(ctx.pathParam("id"));
+                Tarefa tarefa = tarefas.stream()
+                        .filter(t -> t.getId() == id)
+                        .findFirst()
+                        .orElseThrow(() -> new NotFoundResponse("Tarefa não encontrada"));
+                ctx.json(tarefa);
+            } catch (NumberFormatException e) {
+                throw new BadRequestResponse("ID inválido para tarefa");
+            }
+        });
+
+        app.put("/tarefas/{id}", ctx -> {
+            int id = Integer.parseInt(ctx.pathParam("id"));
+            Tarefa novaTarefa = ctx.bodyAsClass(Tarefa.class);
+            for (int i = 0; i < tarefas.size(); i++) {
+                if (tarefas.get(i).getId() == id) {
+                    tarefas.set(i, novaTarefa);
+                    ctx.json(novaTarefa);
+                    return;
+                }
+            }
+            throw new NotFoundResponse("Tarefa para atualização não encontrada");
+        });
+
+        app.delete("/tarefas/{id}", ctx -> {
+            int id = Integer.parseInt(ctx.pathParam("id"));
+            boolean removida = tarefas.removeIf(t -> t.getId() == id);
+            if (removida) {
+                ctx.status(204);
+            } else {
+                throw new NotFoundResponse("Tarefa para remoção não encontrada");
+            }
+        });
+
         return app;
     }
 
-    // Método principal que inicia o servidor Javalin na porta 7000
     public static void main(String[] args) {
         createApp().start(7000);
     }
